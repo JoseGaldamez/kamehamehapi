@@ -7,33 +7,31 @@ import (
 
 	"github.com/JoseGaldamez/kamehamehapi/src/characters"
 	"github.com/JoseGaldamez/kamehamehapi/src/jwttoken"
-	"github.com/JoseGaldamez/kamehamehapi/utils"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 )
 
 func main() {
-
-	hostname, _ := os.Hostname()
 	_ = godotenv.Load()
 
 	logger := log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
-
-	logger.Println("Server staring")
-	logger.Println(hostname)
+	logger.Println("==============> Starting Kamehamehapi <=============")
 
 	router := mux.NewRouter().StrictSlash(true)
 
 	jwttoken.CreateRouter("/token", router)
 	characters.CreateRouter("/characters", router)
 
-	server := &http.Server{
-		Handler: router,
-		Addr:    utils.ServerAddress,
-	}
+	log.Println("====> Listening on PORT: " + os.Getenv("PORT"))
 
-	log.Println("====> Listening on: " + utils.ServerAddress)
+	corsConfig := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: true,
+	})
 
-	log.Fatal(server.ListenAndServe())
+	handler := corsConfig.Handler(router)
+
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), handler))
 
 }
