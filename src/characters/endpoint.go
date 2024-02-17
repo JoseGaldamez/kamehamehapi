@@ -1,69 +1,35 @@
 package characters
 
 import (
-	"encoding/json"
-	"net/http"
+	"log"
 
-	"github.com/JoseGaldamez/kamehamehapi/src/jwttoken"
+	"github.com/JoseGaldamez/kamehamehapi/models"
 	"github.com/JoseGaldamez/kamehamehapi/utils"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type (
-	Character struct {
-		Name string `json:"name"`
-	}
 	ResquestError struct {
 		Error string `json:"error"`
 	}
 )
 
-func CreateRouter(path string, router *mux.Router) {
-	router.HandleFunc(utils.ApiUrlPrefix+path, getAllCharacters).Methods("GET")
-	router.HandleFunc(utils.ApiUrlPrefix+path, createCharacter).Methods("POST")
+func MakeEnpoint(s Service) models.Endpoints {
+	return models.Endpoints{
+		Create: MakeCreateCharactersController(s),
+		Get:    MakeGetCharactersController(s),
+		GetAll: MakeGetAllCharactersController(s),
+		Update: MakeUpdateCharacterController(s),
+		Delete: MakeDeleteCharacterController(s),
+	}
 }
 
-func createCharacter(response http.ResponseWriter, request *http.Request) {
-	var character Character
+func CreateRouter(path string, router *mux.Router, clientDB *mongo.Client, logger *log.Logger) {
 
-	err := json.NewDecoder(request.Body).Decode(&character)
-	if err != nil {
-		response.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(response).Encode(ResquestError{Error: "Invalid parameters"})
-		return
-	}
-	if character.Name == "" {
-		response.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(response).Encode(ResquestError{Error: "Name is requerid"})
-		return
-	}
+	service := NewCharacterService(clientDB, logger)
+	endpoints := MakeEnpoint(service)
 
-	response.WriteHeader(http.StatusCreated)
-	json.NewEncoder(response).Encode(character)
-}
-
-func getAllCharacters(response http.ResponseWriter, request *http.Request) {
-	response.Header().Set("Content-Type", "application/json")
-
-	email, err := jwttoken.VerifyToken(request)
-	if err != nil {
-		response.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(response).Encode(ResquestError{Error: "Unauthorized, check your token"})
-		return
-	}
-	if email == "" {
-		response.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(response).Encode(ResquestError{Error: "Invalid User Token"})
-		return
-	}
-
-	var characters []Character
-
-	goku := Character{Name: "Goku"}
-	vegeta := Character{Name: "Vegeta"}
-	bulma := Character{Name: "Bulma"}
-
-	characters = append(characters, goku, vegeta, bulma)
-
-	json.NewEncoder(response).Encode(characters)
+	router.HandleFunc(utils.ApiUrlPrefix+path, endpoints.GetAll).Methods("GET")
+	router.HandleFunc(utils.ApiUrlPrefix+path, endpoints.Create).Methods("POST")
 }
